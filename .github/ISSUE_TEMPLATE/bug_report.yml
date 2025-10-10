@@ -1,0 +1,143 @@
+name: 🐛 Bug Report - تقرير خطأ
+description: الإبلاغ عن خطأ أو مشكلة في التطبيق
+title: "[BUG] "
+labels: ["bug", "needs-triage"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        شكراً لك على الإبلاغ عن هذا الخطأ! 🙏
+        يرجى ملء النموذج التالي بأكبر قدر من التفاصيل لمساعدتنا في حل المشكلة.
+
+  - type: textarea
+    id: bug-description
+    attributes:
+      label: 📝 وصف الخطأ
+      description: وصف واضح ومختصر للخطأ الذي واجهته
+      placeholder: مثال: عند الضغط على زر "إضافة مهمة"، لا يحدث شيء ولا تظهر أي رسالة خطأ
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps-to-reproduce
+    attributes:
+      label: 🔄 خطوات إعادة إنتاج الخطأ
+      description: خطوات مفصلة لإعادة إنتاج المشكلة
+      placeholder: |
+        1. اذهب إلى صفحة المهام
+        2. اضغط على زر "إضافة مهمة"
+        3. املأ النموذج
+        4. اضغط على "حفظ"
+        5. لاحظ أن المهمة لم تُضاف
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: ✅ السلوك المتوقع
+      description: وصف لما كان يجب أن يحدث
+      placeholder: يجب أن تُضاف المهمة الجديدة إلى القائمة وتظهر رسالة نجاح
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual-behavior
+    attributes:
+      label: ❌ السلوك الفعلي
+      description: وصف لما حدث بالفعل
+      placeholder: لا يحدث شيء، المهمة لا تُضاف ولا تظهر أي رسالة
+    validations:
+      required: true
+
+  - type: dropdown
+    id: browser
+    attributes:
+      label: 🌐 المتصفح
+      description: أي متصفح تستخدم؟
+      options:
+        - Chrome
+        - Firefox
+        - Safari
+        - Edge
+        - Opera
+        - أخرى
+    validations:
+      required: true
+
+  - type: input
+    id: browser-version
+    attributes:
+      label: 📊 إصدار المتصفح
+      description: ما هو إصدار المتصفح؟
+      placeholder: مثال: Chrome 120.0.6099.109
+    validations:
+      required: true
+
+  - type: dropdown
+    id: operating-system
+    attributes:
+      label: 💻 نظام التشغيل
+      description: أي نظام تشغيل تستخدم؟
+      options:
+        - Windows 11
+        - Windows 10
+        - macOS
+        - Ubuntu
+        - Linux (أخرى)
+        - أخرى
+    validations:
+      required: true
+
+  - type: input
+    id: app-version
+    attributes:
+      label: 📱 إصدار التطبيق
+      description: ما هو إصدار Y0 Task Manager؟
+      placeholder: مثال: v1.0.0
+    validations:
+      required: true
+
+  - type: textarea
+    id: console-errors
+    attributes:
+      label: 🔍 أخطاء وحدة التحكم
+      description: |
+        افتح Developer Tools (F12) وانسخ أي أخطاء من Console
+        ```
+        ضع الأخطاء هنا
+        ```
+      render: shell
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: 📸 لقطات الشاشة
+      description: |
+        إذا أمكن، أضف لقطات شاشة لتوضيح المشكلة
+        يمكنك سحب وإفلات الصور هنا
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: 📋 معلومات إضافية
+      description: أي معلومات أخرى قد تساعد في حل المشكلة
+      placeholder: |
+        - هل المشكلة تحدث دائماً أم أحياناً؟
+        - هل جربت حلول أخرى؟
+        - متى بدأت المشكلة؟
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: ✅ التأكيدات
+      description: يرجى التأكد من النقاط التالية
+      options:
+        - label: بحثت في Issues الموجودة ولم أجد مشكلة مشابهة
+          required: true
+        - label: جربت إعادة تحميل الصفحة وما زالت المشكلة موجودة
+          required: true
+        - label: المعلومات المقدمة دقيقة وكاملة
+          required: true

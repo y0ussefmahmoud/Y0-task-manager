@@ -1,0 +1,144 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  # Backend Tests
+  backend-test:
+    runs-on: ubuntu-latest
+    
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: testpassword
+          MYSQL_DATABASE: y0_task_manager_test
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+      
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: --health-cmd="redis-cli ping" --health-interval=10s --health-timeout=5s --health-retries=3
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: backend/package-lock.json
+    
+    - name: Install Backend Dependencies
+      run: |
+        cd backend
+        npm ci
+    
+    - name: Setup Environment
+      run: |
+        cd backend
+        cp .env.example .env
+        echo "DB_HOST=localhost" >> .env
+        echo "DB_PORT=3306" >> .env
+        echo "DB_NAME=y0_task_manager_test" >> .env
+        echo "DB_USER=root" >> .env
+        echo "DB_PASSWORD=testpassword" >> .env
+    
+    - name: Run Backend Tests
+      run: |
+        cd backend
+        npm test
+    
+    - name: Run Backend Linting
+      run: |
+        cd backend
+        npm run lint || true
+
+  # Frontend Tests
+  frontend-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.16.0'
+        channel: 'stable'
+    
+    - name: Install Frontend Dependencies
+      run: |
+        cd frontend
+        flutter pub get
+    
+    - name: Generate Code
+      run: |
+        cd frontend
+        flutter packages pub run build_runner build --delete-conflicting-outputs
+    
+    - name: Run Frontend Tests
+      run: |
+        cd frontend
+        flutter test
+    
+    - name: Analyze Flutter Code
+      run: |
+        cd frontend
+        flutter analyze
+    
+    - name: Check Flutter Formatting
+      run: |
+        cd frontend
+        flutter format --set-exit-if-changed .
+
+  # Build and Deploy (only on main branch)
+  deploy:
+    needs: [backend-test, frontend-test]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+    
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.16.0'
+        channel: 'stable'
+    
+    - name: Build Backend
+      run: |
+        cd backend
+        npm ci
+        npm run build || echo "No build script found"
+    
+    - name: Build Frontend
+      run: |
+        cd frontend
+        flutter pub get
+        flutter packages pub run build_runner build --delete-conflicting-outputs
+        flutter build web --release
+    
+    - name: Deploy to GitHub Pages (Frontend)
+      uses: peaceiris/actions-gh-pages@v3
+      if: github.ref == 'refs/heads/main'
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./frontend/build/web
+        
+    # Add your deployment steps here for backend
+    # Example: Deploy to Railway, Render, or other platforms
