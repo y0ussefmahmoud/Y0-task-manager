@@ -1,3 +1,14 @@
+// ملف: config/database.js
+// الغرض: إعداد اتصال قاعدة البيانات MySQL باستخدام Sequelize ORM
+// الإعدادات:
+// - host, port, database, username, password, dialect: معلمات الاتصال بقاعدة البيانات
+// - pool: إعدادات التجمع (Pooling) لتحسين الأداء (max/min/acquire/idle)
+// - timezone: تضبيط المنطقة الزمنية (+03:00 للقاهرة)
+// - define: تعاريف عامة للجداول (charset/collate لدعم العربية بشكل كامل)
+// الدوال:
+// - testConnection(): اختبار الاتصال والتحقق من الصحة
+// - initDatabase(): تهيئة الاتصال ومزامنة النماذج في وضع التطوير
+
 const { Sequelize } = require('sequelize');
 require('dotenv').config();
 
@@ -11,14 +22,14 @@ const sequelize = new Sequelize({
   dialect: 'mysql',
   logging: process.env.NODE_ENV === 'development' ? console.log : false,
   pool: {
-    max: 10,
-    min: 0,
-    acquire: 30000,
-    idle: 10000
+    max: 10, // أقصى عدد للاتصالات المفتوحة
+    min: 0,  // أقل عدد للاتصالات
+    acquire: 30000, // مدة الانتظار قبل الفشل في الحصول على اتصال (ms)
+    idle: 10000 // مدة إبقاء الاتصال خاملاً قبل إغلاقه (ms)
   },
   timezone: '+03:00', // Cairo timezone
   define: {
-    charset: 'utf8mb4',
+    charset: 'utf8mb4', // دعم الرموز التعبيرية والعربية
     collate: 'utf8mb4_unicode_ci',
     timestamps: true,
     underscored: false,
@@ -27,6 +38,7 @@ const sequelize = new Sequelize({
 });
 
 // Test Database Connection
+// الغرض: التأكد من إمكانية الاتصال بقاعدة البيانات وعرض رسالة مناسبة
 const testConnection = async () => {
   try {
     await sequelize.authenticate();
@@ -38,6 +50,7 @@ const testConnection = async () => {
 };
 
 // Initialize Database
+// الغرض: تهيئة قاعدة البيانات واستدعاء المزامنة في وضع التطوير فقط
 const initDatabase = async () => {
   try {
     await testConnection();

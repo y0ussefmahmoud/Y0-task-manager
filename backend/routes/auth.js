@@ -1,3 +1,16 @@
+// ملف: routes/auth.js
+// الغرض: تعريف مسارات المصادقة والتسجيل للمستخدمين
+// التقنيات المستخدمة:
+// - express: إطار العمل لمعالجة الطلبات HTTP
+// - jsonwebtoken (JWT): لتوليد رموز الوصول والتحقق من هوية المستخدم
+// - express-validator: للتحقق من صحة البيانات المدخلة من العميل
+// - User model: للتعامل مع بيانات المستخدمين في قاعدة البيانات
+//
+// ملاحظات مهمة:
+// - يتم استخدام express-validator للتحقق من حقول الطلب وإرجاع رسائل عربية واضحة عند وجود أخطاء
+// - يتم توليد JWT مع payload يحتوي userId و email ومدة صلاحية من متغيرات البيئة
+// - المسارات الحالية لا تستخدم Middleware للتوثيق؛ يفترض وجوده مستقبلاً لحماية المسارات الحساسة
+
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
@@ -5,6 +18,14 @@ const { User } = require('../models');
 const router = express.Router();
 
 // Register
+// POST /register
+// الغرض: إنشاء حساب مستخدم جديد
+// الخطوات:
+// 1) التحقق من صحة البيانات باستخدام express-validator
+// 2) التأكد من عدم وجود مستخدم بنفس البريد/اسم المستخدم
+// 3) إنشاء المستخدم (يتم تشفير كلمة المرور في hook قبل الحفظ)
+// 4) توليد JWT token مع مدة صلاحية محددة
+// 5) إعادة بيانات المستخدم مع الرمز
 router.post('/register', [
   body('username')
     .isLength({ min: 3, max: 50 })
@@ -29,12 +50,13 @@ router.post('/register', [
 ], async (req, res) => {
   try {
     // Check validation errors
+    // التحقق من الأخطاء الناتجة عن express-validator
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({
         success: false,
         message: 'بيانات غير صحيحة',
-        errors: errors.array()
+        errors: errors.array() // إرجاع قائمة الأخطاء مع الرسائل العربية
       });
     }
 
@@ -63,7 +85,10 @@ router.post('/register', [
       lastName
     });
 
-    // Generate JWT token
+    // توليد رمز JWT
+    // - payload: userId, email
+    // - السر: JWT_SECRET من متغيرات البيئة
+    // - مدة الصلاحية: JWT_EXPIRES_IN أو 7 أيام افتراضياً
     const token = jwt.sign(
       { userId: user.id, email: user.email },
       process.env.JWT_SECRET,
@@ -89,6 +114,14 @@ router.post('/register', [
 });
 
 // Login
+// POST /login
+// الغرض: تسجيل دخول المستخدم والتحقق من البريد/كلمة المرور
+// الخطوات:
+// 1) التحقق من صحة الحقول
+// 2) البحث عن المستخدم بواسطة البريد والتأكد أنه نشط
+// 3) التحقق من كلمة المرور عبر User.validatePassword()
+// 4) تحديث lastActivity
+// 5) توليد JWT وإعادة البيانات
 router.post('/login', [
   body('email')
     .isEmail()
@@ -132,7 +165,7 @@ router.post('/login', [
       });
     }
 
-    // Update last activity
+    // تحديث آخر نشاط للمستخدم لتعقب الـ streak لاحقاً
     user.lastActivity = new Date();
     await user.save();
 
@@ -162,6 +195,9 @@ router.post('/login', [
 });
 
 // Get Profile
+// GET /profile
+// الغرض: جلب بيانات المستخدم الحالي بناءً على الرمز (JWT)
+// ملاحظة: يفترض وجود Middleware يملأ req.user من الرمز
 router.get('/profile', async (req, res) => {
   try {
     // This route will be protected by auth middleware
@@ -189,6 +225,7 @@ router.get('/profile', async (req, res) => {
     });
 
   } catch (error) {
+    // معالجة الأخطاء العامة وإرجاع رسالة عربية مناسبة
     console.error('Profile error:', error);
     res.status(500).json({
       success: false,
@@ -197,7 +234,9 @@ router.get('/profile', async (req, res) => {
   }
 });
 
-// Logout (for future use with refresh tokens)
+// Logout
+// POST /logout
+// الغرض: تسجيل الخروج (نقطة نهاية تمهيدية؛ قد تُستخدم مع Refresh Tokens مستقبلاً)
 router.post('/logout', (req, res) => {
   res.json({
     success: true,

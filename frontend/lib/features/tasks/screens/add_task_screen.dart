@@ -5,6 +5,8 @@ import 'package:intl/intl.dart';
 
 import '../providers/task_provider.dart';
 import '../../categories/providers/category_provider.dart';
+import '../../ai/providers/ai_provider.dart';
+import '../../ai/widgets/voice_input_button.dart';
 import '../../../core/models/task.dart';
 import '../../../core/models/category.dart';
 
@@ -31,6 +33,9 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   List<String> _tags = [];
   bool _isLoading = false;
   Task? _editingTask;
+  String? _aiSuggestedPriority;
+  DateTime? _aiSuggestedDate;
+  int? _aiEstimatedDuration;
 
   @override
   void initState() {
@@ -170,12 +175,19 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            // Title Field
+            // Title Field with AI
             TextFormField(
               controller: _titleController,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'عنوان المهمة *',
-                prefixIcon: Icon(Icons.title),
+                prefixIcon: const Icon(Icons.title),
+                suffixIcon: CompactVoiceButton(
+                  onTextReceived: (text) {
+                    _titleController.text = text;
+                    _analyzeTaskText(text);
+                  },
+                  tooltip: 'إدخال صوتي للمهمة',
+                ),
               ),
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
@@ -183,7 +195,13 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                 }
                 return null;
               },
+              onChanged: _analyzeTaskText,
             ),
+
+            const SizedBox(height: 8),
+            
+            // AI Suggestions Card
+            _buildAISuggestionsCard(),
 
             const SizedBox(height: 16),
 
@@ -420,6 +438,132 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
           );
         });
       }
+    }
+  }
+
+  // AI Analysis Methods
+  void _analyzeTaskText(String text) {
+    if (text.trim().isEmpty) return;
+    
+    final aiProvider = context.read<AIProvider>();
+    final categoryProvider = context.read<CategoryProvider>();
+    final taskProvider = context.read<TaskProvider>();
+    
+    // Analyze text with NLP
+    final categories = categoryProvider.categories.map((c) => c.name).toList();
+    final analysis = aiProvider.analyzeTaskText(text, categories);
+    
+    // Suggest priority
+    final suggestedPriority = aiProvider.suggestPriority(text, _descriptionController.text);
+    
+    // Estimate duration
+    final estimatedDuration = aiProvider.estimateDuration(text, _descriptionController.text, taskProvider.allTasks);
+    
+    setState(() {
+      _aiSuggestedPriority = suggestedPriority;
+      _aiSuggestedDate = analysis.combinedDateTime;
+      _aiEstimatedDuration = estimatedDuration;
+    });
+  }
+
+  Widget _buildAISuggestionsCard() {
+    if (_aiSuggestedPriority == null && _aiSuggestedDate == null && _aiEstimatedDuration == null) {
+      return const SizedBox.shrink();
+    }
+
+    return Card(
+      color: Colors.blue.withOpacity(0.05),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.psychology, color: Colors.blue, size: 16),
+                const SizedBox(width: 8),
+                Text(
+                  'اقتراحات ذكية',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Colors.blue,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            
+            if (_aiSuggestedPriority != null && _aiSuggestedPriority != _priority)
+              _buildSuggestionChip(
+                'الأولوية: ${_getPriorityText(_aiSuggestedPriority!)}',
+                () {
+                  setState(() {
+                    _priority = _aiSuggestedPriority!;
+                  });
+                },
+              ),
+            
+            if (_aiSuggestedDate != null && _aiSuggestedDate != _dueDate)
+              _buildSuggestionChip(
+                'التاريخ: ${DateFormat('dd/MM/yyyy').format(_aiSuggestedDate!)}',
+                () {
+                  setState(() {
+                    _dueDate = _aiSuggestedDate;
+                  });
+                },
+              ),
+            
+            if (_aiEstimatedDuration != null && _aiEstimatedDuration != int.tryParse(_estimatedDurationController.text))
+              _buildSuggestionChip(
+                'المدة المقدرة: ${_aiEstimatedDuration} دقيقة',
+                () {
+                  _estimatedDurationController.text = _aiEstimatedDuration.toString();
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSuggestionChip(String text, VoidCallback onTap) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.blue.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.blue.withOpacity(0.3)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                text,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Colors.blue[700],
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(Icons.add, size: 12, color: Colors.blue[700]),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _getPriorityText(String priority) {
+    switch (priority) {
+      case 'low': return 'منخفضة';
+      case 'medium': return 'متوسطة';
+      case 'high': return 'عالية';
+      case 'urgent': return 'عاجلة';
+      default: return 'متوسطة';
     }
   }
 }

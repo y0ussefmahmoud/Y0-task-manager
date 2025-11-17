@@ -2,29 +2,45 @@ import 'package:hive/hive.dart';
 
 part 'category.g.dart';
 
+/// نموذج الفئة (Category Model)
+/// 
+/// يمثل فئة لتصنيف المهام:
+/// - المعلومات الأساسية (الاسم، الوصف)
+/// - التخصيص (اللون، الأيقونة)
+/// - النوع (افتراضية أو مخصصة)
+/// 
+/// يستخدم Hive للتخزين المحلي مع TypeAdapter
 @HiveType(typeId: 1)
 class Category extends HiveObject {
+  /// معرف الفئة
   @HiveField(0)
   String id;
 
+  /// اسم الفئة
   @HiveField(1)
   String name;
 
+  /// اللون (Hex color code)
   @HiveField(2)
   String color; // Hex color code
 
+  /// اسم الأيقونة المستخدمة لتمثيل الفئة
   @HiveField(3)
   String icon; // Icon name
 
+  /// وصف الفئة (اختياري)
   @HiveField(4)
   String? description;
 
+  /// هل الفئة افتراضية؟ (لا يمكن حذفها)
   @HiveField(5)
   bool isDefault;
 
+  /// وقت الإنشاء
   @HiveField(6)
   DateTime createdAt;
 
+  /// آخر وقت تحديث
   @HiveField(7)
   DateTime updatedAt;
 
@@ -40,7 +56,7 @@ class Category extends HiveObject {
   })  : createdAt = createdAt ?? DateTime.now(),
         updatedAt = updatedAt ?? DateTime.now();
 
-  // Convert to JSON
+  /// تحويل الفئة إلى JSON
   Map<String, dynamic> toJson() {
     return {
       'id': id,
@@ -54,7 +70,7 @@ class Category extends HiveObject {
     };
   }
 
-  // Create from JSON
+  /// إنشاء فئة من JSON
   factory Category.fromJson(Map<String, dynamic> json) {
     return Category(
       id: json['id'],
@@ -68,7 +84,7 @@ class Category extends HiveObject {
     );
   }
 
-  // Copy with
+  /// إنشاء نسخة من الفئة مع تعديل بعض الحقول
   Category copyWith({
     String? id,
     String? name,
@@ -91,7 +107,7 @@ class Category extends HiveObject {
     );
   }
 
-  // Default categories
+  /// إرجاع قائمة الفئات الافتراضية (العمل، الدراسة، الصحة، الأسرة، شخصي)
   static List<Category> getDefaultCategories() {
     return [
       Category(

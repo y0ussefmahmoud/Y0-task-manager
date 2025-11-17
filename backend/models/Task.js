@@ -1,3 +1,12 @@
+// ملف: models/Task.js
+// الغرض: تعريف نموذج المهمة وإدارة خصائصها وعلاقاتها مع المستخدم والفئات
+// الحقول الرئيسية: العنوان، الوصف، الأولوية، الحالة، التواريخ، مكافأة XP، التكرار، العلامات
+// العلاقات:
+// - Task ينتمي إلى User (مطلوب)
+// - Task ينتمي إلى Category (اختياري)
+// Hooks:
+// - beforeUpdate: تعيين completedAt تلقائياً عند تغيير الحالة إلى completed
+
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/database');
 
@@ -29,11 +38,11 @@ const Task = sequelize.define('Task', {
   priority: {
     type: DataTypes.ENUM('low', 'medium', 'high', 'urgent'),
     defaultValue: 'medium'
-  },
+  }, // ENUM: ترتيب الأولوية (low/medium/high/urgent)
   status: {
     type: DataTypes.ENUM('pending', 'in_progress', 'completed', 'cancelled'),
     defaultValue: 'pending'
-  },
+  }, // ENUM: حالة المهمة (pending/in_progress/completed/cancelled)
   dueDate: {
     type: DataTypes.DATE,
     field: 'due_date'
@@ -45,11 +54,11 @@ const Task = sequelize.define('Task', {
   estimatedDuration: {
     type: DataTypes.INTEGER, // in minutes
     field: 'estimated_duration'
-  },
+  }, // مدة التنفيذ المقدرة بالدقائق
   actualDuration: {
     type: DataTypes.INTEGER, // in minutes
     field: 'actual_duration'
-  },
+  }, // مدة التنفيذ الفعلية بالدقائق
   xpReward: {
     type: DataTypes.INTEGER,
     defaultValue: 10,
@@ -59,11 +68,11 @@ const Task = sequelize.define('Task', {
     type: DataTypes.BOOLEAN,
     defaultValue: false,
     field: 'is_recurring'
-  },
+  }, // تكرار المهمة
   recurringPattern: {
     type: DataTypes.STRING(50),
     field: 'recurring_pattern'
-  },
+  }, // نمط التكرار (مثال: daily/weekly)
   tags: {
     type: DataTypes.JSON,
     defaultValue: []
@@ -82,6 +91,7 @@ const Task = sequelize.define('Task', {
   createdAt: 'created_at',
   updatedAt: 'updated_at',
   hooks: {
+    // عند تحديث الحالة إلى "completed" لأول مرة، يتم تعيين تاريخ الإكمال
     beforeUpdate: (task) => {
       if (task.changed('status') && task.status === 'completed' && !task.completedAt) {
         task.completedAt = new Date();
@@ -91,6 +101,7 @@ const Task = sequelize.define('Task', {
 });
 
 // Instance Methods
+// markCompleted(): تحديد المهمة كمكتملة وتعيين وقت الإكمال
 Task.prototype.markCompleted = async function() {
   this.status = 'completed';
   this.completedAt = new Date();
@@ -98,11 +109,13 @@ Task.prototype.markCompleted = async function() {
   return this;
 };
 
+// isOverdue(): التحقق من تأخر المهمة (إن كان dueDate في الماضي والحالة ليست مكتملة)
 Task.prototype.isOverdue = function() {
   if (!this.dueDate || this.status === 'completed') return false;
   return new Date() > new Date(this.dueDate);
 };
 
+// getDaysUntilDue(): حساب عدد الأيام المتبقية حتى تاريخ الاستحقاق (أو null إن لم يكن محدداً)
 Task.prototype.getDaysUntilDue = function() {
   if (!this.dueDate) return null;
   const today = new Date();
@@ -111,6 +124,7 @@ Task.prototype.getDaysUntilDue = function() {
   return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 };
 
+// getPriorityScore(): تحويل الأولوية إلى رقم للمقارنة (urgent=4, high=3, medium=2, low=1)
 Task.prototype.getPriorityScore = function() {
   const priorityScores = {
     low: 1,
@@ -121,6 +135,8 @@ Task.prototype.getPriorityScore = function() {
   return priorityScores[this.priority] || 2;
 };
 
+// calculateXpReward(): حساب مكافأة XP بناءً على الأولوية والمدة المقدرة والتأخير
+// الصيغة: baseXp + priorityBonus + durationBonus - overduePenalty (الحد الأدنى 5 XP)
 Task.prototype.calculateXpReward = function() {
   let baseXp = 10;
   

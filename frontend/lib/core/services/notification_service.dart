@@ -1,9 +1,16 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter/foundation.dart';
+import 'package:timezone/timezone.dart' as tz;
 
 class NotificationService {
   static final FlutterLocalNotificationsPlugin _notifications =
       FlutterLocalNotificationsPlugin();
+
+  static void _onNotificationTapped(NotificationResponse response) {
+    // Handle notification tap
+    debugPrint('Notification tapped: ${response.payload}');
+  }
 
   static Future<void> initialize() async {
     const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -44,16 +51,11 @@ class NotificationService {
     }
   }
 
-  static void _onNotificationTapped(NotificationResponse response) {
-    // Handle notification tap
-    debugPrint('Notification tapped: ${response.payload}');
-  }
-
-  static Future<void> showTaskReminder({
+  static Future<void> showNotification({
     required int id,
     required String title,
     required String body,
-    DateTime? scheduledDate,
+    tz.TZDateTime? scheduledDate,
   }) async {
     const androidDetails = AndroidNotificationDetails(
       'task_reminders',
@@ -96,37 +98,19 @@ class NotificationService {
     }
   }
 
-  static Future<void> showAchievementNotification({
+  static Future<void> showTaskReminder({
     required int id,
     required String title,
     required String body,
+    DateTime? scheduledDate,
   }) async {
-    const androidDetails = AndroidNotificationDetails(
-      'achievements',
-      'الإنجازات',
-      channelDescription: 'إشعارات الإنجازات والمكافآت',
-      importance: Importance.high,
-      priority: Priority.high,
-      icon: '@mipmap/ic_launcher',
-      color: Color(0xFF6366F1),
-    );
-
-    const iosDetails = DarwinNotificationDetails(
-      presentAlert: true,
-      presentBadge: true,
-      presentSound: true,
-    );
-
-    const notificationDetails = NotificationDetails(
-      android: androidDetails,
-      iOS: iosDetails,
-    );
-
-    await _notifications.show(
-      id,
-      title,
-      body,
-      notificationDetails,
+    return showNotification(
+      id: id,
+      title: title,
+      body: body,
+      scheduledDate: scheduledDate != null 
+          ? tz.TZDateTime.from(scheduledDate, tz.local)
+          : null,
     );
   }
 
@@ -136,9 +120,5 @@ class NotificationService {
 
   static Future<void> cancelAllNotifications() async {
     await _notifications.cancelAll();
-  }
-
-  static Future<List<PendingNotificationRequest>> getPendingNotifications() async {
-    return await _notifications.pendingNotificationRequests();
   }
 }

@@ -1,9 +1,23 @@
+// ملف: routes/tasks.js
+// الغرض: إدارة مهام المستخدم (إنشاء، قراءة، تحديث، حذف) بالإضافة إلى الإحصائيات
+// العلاقات:
+// - Task يرتبط بـ User (belongsTo)
+// - Task يرتبط بـ Category اختيارياً (belongsTo)
+// الأدوات:
+// - express-validator للتحقق من المدخلات
+// - Sequelize للنماذج والاستعلامات
+
 const express = require('express');
 const { body, validationResult, query } = require('express-validator');
 const { Task, Category, User } = require('../models');
 const router = express.Router();
 
 // Get all tasks for user
+// GET /
+// الغرض: جلب قائمة المهام مع دعم الفلترة والترتيب والصفحات (pagination)
+// معلمات الاستعلام:
+// - status, priority, categoryId للفلترة
+// - page, limit للتحكم في صفحات النتائج
 router.get('/', [
   query('status').optional().isIn(['pending', 'in_progress', 'completed', 'cancelled']),
   query('priority').optional().isIn(['low', 'medium', 'high', 'urgent']),
@@ -22,13 +36,13 @@ router.get('/', [
 
     const { status, priority, categoryId, page = 1, limit = 20 } = req.query;
     
-    // Build where clause
+    // بناء شروط البحث ديناميكياً حسب المعلمات
     const where = { userId };
     if (status) where.status = status;
     if (priority) where.priority = priority;
     if (categoryId) where.categoryId = categoryId;
 
-    // Pagination
+    // الحساب للصفحات: offset = (page - 1) * limit
     const offset = (page - 1) * limit;
 
     const { count, rows: tasks } = await Task.findAndCountAll({
@@ -40,6 +54,7 @@ router.get('/', [
           attributes: ['id', 'name', 'color', 'icon']
         }
       ],
+      // ترتيب افتراضي: الأعلى أولوية أولاً، ثم أقرب موعد، ثم الأحدث إنشاءً
       order: [
         ['priority', 'DESC'],
         ['dueDate', 'ASC'],
@@ -72,6 +87,8 @@ router.get('/', [
 });
 
 // Get single task
+// GET /:id
+// الغرض: جلب مهمة واحدة مع بيانات الفئة التابعة لها
 router.get('/:id', async (req, res) => {
   try {
     const userId = req.user?.id;
@@ -110,6 +127,9 @@ router.get('/:id', async (req, res) => {
 });
 
 // Create new task
+// POST /
+// الغرض: إنشاء مهمة جديدة بعد التحقق من صحة البيانات والتحقق من ملكية الفئة
+// منطق إضافي: حساب مكافأة XP للمهمة عبر calculateXpReward()
 router.post('/', [
   body('title')
     .notEmpty()
@@ -150,7 +170,7 @@ router.post('/', [
     const userId = req.user?.id;
     const { title, description, priority, categoryId, dueDate, estimatedDuration, tags } = req.body;
 
-    // Verify category belongs to user if provided
+    // التحقق من أن الفئة (إن تم تمريرها) تخص نفس المستخدم
     if (categoryId) {
       const category = await Category.findOne({
         where: { id: categoryId, userId }
@@ -175,7 +195,7 @@ router.post('/', [
       tags: tags || []
     });
 
-    // Calculate XP reward
+    // حساب مكافأة XP للمهمة بناءً على الأولوية والمدة والتأخير
     task.calculateXpReward();
     await task.save();
 
@@ -206,6 +226,8 @@ router.post('/', [
 });
 
 // Update task
+// PUT /:id
+// الغرض: تحديث خصائص المهمة. وعند اكتمالها لأول مرة يتم منح XP للمستخدم وتحديث الـ streak
 router.put('/:id', [
   body('title')
     .optional()
@@ -246,10 +268,10 @@ router.put('/:id', [
       });
     }
 
-    // Update task
+    // تحديث بيانات المهمة
     const updatedTask = await task.update(req.body);
 
-    // If task completed, award XP to user
+    // في حال تغيرت الحالة إلى مكتملة لأول مرة: امنح نقاط XP وحدث سلسلة الأيام
     if (updatedTask.status === 'completed' && task.status !== 'completed') {
       const user = await User.findByPk(userId);
       await user.addXp(updatedTask.xpReward);
@@ -283,6 +305,8 @@ router.put('/:id', [
 });
 
 // Delete task
+// DELETE /:id
+// الغرض: حذف مهمة تخص المستخدم الحالي
 router.delete('/:id', async (req, res) => {
   try {
     const userId = req.user?.id;
@@ -316,10 +340,13 @@ router.delete('/:id', async (req, res) => {
 });
 
 // Get tasks statistics
+// GET /stats/overview
+// الغرض: حساب نظرة عامة لإحصائيات المهام حسب الحالة (معلقة/قيد التنفيذ/مكتملة/ملغاة)
 router.get('/stats/overview', async (req, res) => {
   try {
     const userId = req.user?.id;
 
+    // استخدام دالة COUNT للتجميع حسب الحالة وإرجاع نتائج خام
     const stats = await Task.findAll({
       where: { userId },
       attributes: [

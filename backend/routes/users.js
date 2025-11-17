@@ -1,8 +1,14 @@
+// ملف: routes/users.js
+// الغرض: إدارة ملف المستخدم (جلب وتحديث بيانات المستخدم)
+// ملاحظة: يجب حماية هذه المسارات عبر Middleware للمصادقة ليكون req.user متاحاً
+
 const express = require('express');
 const { User } = require('../models');
 const router = express.Router();
 
 // Get user profile
+// GET /profile
+// الغرض: جلب بيانات المستخدم الحالي مع استبعاد الحقول الحساسة مثل passwordHash
 router.get('/profile', async (req, res) => {
   try {
     const userId = req.user?.id;
@@ -33,6 +39,8 @@ router.get('/profile', async (req, res) => {
 });
 
 // Update user profile
+// PUT /profile
+// الغرض: تحديث بيانات المستخدم (firstName, lastName, timezone, language, theme)
 router.put('/profile', async (req, res) => {
   try {
     const userId = req.user?.id;

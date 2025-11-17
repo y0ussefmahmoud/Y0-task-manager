@@ -1,3 +1,14 @@
+// ملف: models/Category.js
+// الغرض: تعريف نموذج الفئة لتنظيم المهام
+// العلاقات:
+// - Category ينتمي إلى User
+// - Category يمتلك العديد من المهام Task
+// التحقق:
+// - color يجب أن يكون Hex صالح (مثل: #AABBCC)
+// الدوال (Instance Methods):
+// - getTasksCount(): عدد المهام في هذه الفئة
+// - getCompletedTasksCount(): عدد المهام المكتملة في هذه الفئة
+
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/database');
 
@@ -25,7 +36,7 @@ const Category = sequelize.define('Category', {
     validate: {
       is: /^#[0-9A-F]{6}$/i
     }
-  },
+  }, // لون الفئة (Hex)
   icon: {
     type: DataTypes.STRING(50),
     defaultValue: 'folder'
@@ -45,7 +56,8 @@ const Category = sequelize.define('Category', {
   updatedAt: 'updated_at'
 });
 
-// Instance Methods
+// الدوال - Methods
+// getTasksCount(): حساب عدد المهام في هذه الفئة
 Category.prototype.getTasksCount = async function() {
   const Task = require('./Task');
   return await Task.count({
@@ -53,6 +65,7 @@ Category.prototype.getTasksCount = async function() {
   });
 };
 
+// getCompletedTasksCount(): حساب عدد المهام المكتملة في هذه الفئة
 Category.prototype.getCompletedTasksCount = async function() {
   const Task = require('./Task');
   return await Task.count({

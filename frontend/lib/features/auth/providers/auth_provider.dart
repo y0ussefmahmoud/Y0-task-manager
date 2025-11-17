@@ -5,6 +5,15 @@ import 'package:hive/hive.dart';
 import '../../../core/models/user.dart';
 import '../services/auth_service.dart';
 
+/// Provider لإدارة حالة المصادقة والمستخدم
+/// 
+/// يوفر هذا الـ Provider جميع العمليات المتعلقة بالمصادقة:
+/// - تسجيل الدخول والخروج
+/// - إنشاء حساب جديد
+/// - تحديث الملف الشخصي
+/// - إدارة نظام التحفيز (XP, Level, Streak)
+/// - التخزين المحلي باستخدام SharedPreferences و Hive
+/// - التحقق من صلاحية الـ token
 class AuthProvider extends ChangeNotifier {
   final AuthService _authService = AuthService();
   
@@ -15,12 +24,20 @@ class AuthProvider extends ChangeNotifier {
 
   // Getters
   User? get user => _user;
+  /// الحصول على المستخدم الحالي (اسم بديل للتوافق)
+  User? get currentUser => _user; 
+  /// الحصول على الـ token الحالي
   String? get token => _token;
+  /// الحصول على حالة التحميل
   bool get isLoading => _isLoading;
+  /// الحصول على رسالة الخطأ الحالية
   String? get error => _error;
+  /// التحقق من حالة المصادقة
   bool get isAuthenticated => _user != null && _token != null;
 
-  // Initialize auth state
+  /// تحميل بيانات المصادقة من التخزين المحلي والتحقق من صلاحية الـ token
+  /// 
+  /// يتم تحميل الـ token من SharedPreferences والمستخدم من Hive، ثم التحقق من صلاحية الـ token مع الخادم
   Future<void> initialize() async {
     _setLoading(true);
     
@@ -51,7 +68,9 @@ class AuthProvider extends ChangeNotifier {
     _setLoading(false);
   }
 
-  // Login
+  /// تسجيل الدخول وحفظ الـ token والمستخدم محلياً عند النجاح
+  /// 
+  /// يتم إرسال طلب تسجيل الدخول إلى الخادم، ثم حفظ الـ token والمستخدم في SharedPreferences و Hive عند النجاح
   Future<bool> login(String email, String password) async {
     _setLoading(true);
     _clearError();
@@ -81,7 +100,9 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  // Register
+  /// إنشاء حساب جديد وإرجاع حالة النجاح، مع حفظ البيانات محلياً
+  /// 
+  /// يتم إرسال طلب إنشاء حساب إلى الخادم، ثم حفظ الـ token والمستخدم في SharedPreferences و Hive عند النجاح
   Future<bool> register({
     required String username,
     required String email,
@@ -123,7 +144,9 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  // Logout
+  /// تسجيل الخروج ومسح بيانات المصادقة من SharedPreferences و Hive
+  /// 
+  /// يتم مسح الـ token والمستخدم من SharedPreferences و Hive، ثم إعادة تعيين حالة المصادقة
   Future<void> logout() async {
     _setLoading(true);
     
@@ -148,7 +171,9 @@ class AuthProvider extends ChangeNotifier {
     _setLoading(false);
   }
 
-  // Update user profile
+  /// تحديث بيانات الملف الشخصي (firstName, lastName, timezone, language, theme)
+  /// 
+  /// يتم إرسال طلب تحديث الملف الشخصي إلى الخادم، ثم حفظ البيانات المحدثة في SharedPreferences و Hive
   Future<bool> updateProfile({
     String? firstName,
     String? lastName,
@@ -191,7 +216,8 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  // Add XP to user
+  /// إضافة XP للمستخدم وتحديث المستوى تلقائياً (كل 1000 XP = مستوى)
+  /// يتم حفظ البيانات محلياً بعد التحديث
   void addXp(int xp) {
     if (_user != null) {
       _user!.addXp(xp);
@@ -200,13 +226,20 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  // Update streak
+  /// تحديث عداد الأيام المتتالية حسب آخر نشاط
+  /// يتم حفظ البيانات محلياً بعد التحديث
   void updateStreak() {
     if (_user != null) {
       _user!.updateStreak();
       _saveAuthData();
       notifyListeners();
     }
+  }
+
+  // Static method to get XP required for a level
+  static int getXpForLevel(int level) {
+    if (level <= 1) return 0;
+    return (level - 1) * 100; // 100 XP per level
   }
 
   // Private methods
@@ -224,7 +257,8 @@ class AuthProvider extends ChangeNotifier {
     _error = null;
   }
 
-  Future<void> _saveAuthData() async {
+  /// حفظ الـ token في SharedPreferences والمستخدم في Hive
+Future<void> _saveAuthData() async {
     if (_user != null && _token != null) {
       // Save token
       final prefs = await SharedPreferences.getInstance();
@@ -236,7 +270,8 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> _validateToken() async {
+  /// التحقق من صلاحية الـ token مع الخادم وتحديث الحالة، أو تنفيذ logout إذا كان غير صالح
+Future<void> _validateToken() async {
     try {
       final result = await _authService.getProfile();
       

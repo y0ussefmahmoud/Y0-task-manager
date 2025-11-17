@@ -1,9 +1,16 @@
+// ملف: routes/categories.js
+// الغرض: إدارة الفئات (إنشاء/قراءة/تحديث/حذف) الخاصة بالمستخدم
+// العلاقة: الفئة Category قد تحتوي عدة مهام Task وترتبط بمستخدم واحد User
+// التحقق: استخدام express-validator للتحقق من صحة الاسم واللون (Hex)
+
 const express = require('express');
 const { body, validationResult } = require('express-validator');
 const { Category } = require('../models');
 const router = express.Router();
 
 // Get all categories for user
+// GET /
+// الغرض: جلب جميع فئات المستخدم مرتبة أبجدياً
 router.get('/', async (req, res) => {
   try {
     const userId = req.user?.id;
@@ -28,6 +35,9 @@ router.get('/', async (req, res) => {
 });
 
 // Create new category
+// POST /
+// الغرض: إنشاء فئة جديدة بعد التحقق من صحة البيانات وعدم تكرار الاسم
+// ملاحظة: يتم تعيين قيم افتراضية للون والأيقونة إن لم تُرسل
 router.post('/', [
   body('name')
     .notEmpty()
@@ -80,6 +90,8 @@ router.post('/', [
 });
 
 // Update category
+// PUT /:id
+// الغرض: تحديث بيانات الفئة مع التحقق من صحة المدخلات
 router.put('/:id', [
   body('name')
     .optional()
@@ -134,6 +146,8 @@ router.put('/:id', [
 });
 
 // Delete category
+// DELETE /:id
+// الغرض: حذف فئة تخص المستخدم الحالي
 router.delete('/:id', async (req, res) => {
   try {
     const userId = req.user?.id;

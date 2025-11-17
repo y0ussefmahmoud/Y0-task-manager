@@ -6,11 +6,15 @@ import 'package:intl/intl.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../tasks/providers/task_provider.dart';
 import '../../categories/providers/category_provider.dart';
+import '../../ai/providers/ai_provider.dart';
+import '../../ai/widgets/voice_input_button.dart';
 import '../../../core/theme/app_theme.dart';
 import '../widgets/stats_card.dart';
 import '../widgets/quick_actions.dart';
 import '../widgets/recent_tasks.dart';
 import '../widgets/motivational_quote.dart';
+import '../widgets/ai_suggestions.dart';
+import '../widgets/modern_header.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -55,7 +59,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     final user = authProvider.user;
                     return Text(
                       'مرحباً ${user?.displayName ?? 'بك'}',
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: Colors.white,
                         fontSize: 20,
                         fontWeight: FontWeight.w600,
@@ -77,6 +81,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               actions: [
+                IconButton(
+                  icon: const Icon(Icons.analytics_outlined, color: Colors.white),
+                  onPressed: () => context.push('/analytics'),
+                ),
                 IconButton(
                   icon: const Icon(Icons.notifications_outlined, color: Colors.white),
                   onPressed: () {
@@ -117,6 +125,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     
                     const SizedBox(height: 24),
                     
+                    // AI Suggestions
+                    const AISuggestions(),
+                    
+                    const SizedBox(height: 24),
+                    
                     // Recent Tasks
                     const RecentTasks(),
                     
@@ -129,13 +142,34 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
       
-      // Floating Action Button
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.push('/tasks/add'),
-        icon: const Icon(Icons.add),
-        label: const Text('مهمة جديدة'),
-        backgroundColor: Theme.of(context).primaryColor,
-        foregroundColor: Colors.white,
+      // Floating Action Buttons
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Voice Input FAB
+          VoiceInputButton(
+            createTaskDirectly: true,
+            onTaskCreated: (taskTitle) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('تم إنشاء المهمة: $taskTitle'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            },
+          ),
+          
+          const SizedBox(height: 16),
+          
+          // Regular Add Task FAB
+          FloatingActionButton.extended(
+            onPressed: () => context.push('/tasks/add'),
+            icon: const Icon(Icons.add),
+            label: const Text('مهمة جديدة'),
+            backgroundColor: Theme.of(context).primaryColor,
+            foregroundColor: Colors.white,
+          ),
+        ],
       ),
       
       // Bottom Navigation Bar

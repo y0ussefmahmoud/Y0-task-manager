@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../providers/task_provider.dart';
 import '../../categories/providers/category_provider.dart';
+import '../../ai/providers/ai_provider.dart';
+import '../../ai/widgets/voice_input_button.dart';
 import '../../../core/theme/app_theme.dart';
 import '../widgets/task_card.dart';
 import '../widgets/task_filter_chip.dart';
@@ -51,8 +53,20 @@ class _TaskListScreenState extends State<TaskListScreen> {
               decoration: InputDecoration(
                 hintText: 'البحث في المهام...',
                 prefixIcon: const Icon(Icons.search),
-                suffixIcon: _searchQuery.isNotEmpty
-                    ? IconButton(
+                suffixIcon: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CompactVoiceButton(
+                      onTextReceived: (text) {
+                        _searchController.text = text;
+                        setState(() {
+                          _searchQuery = text;
+                        });
+                      },
+                      tooltip: 'البحث الصوتي',
+                    ),
+                    if (_searchQuery.isNotEmpty)
+                      IconButton(
                         icon: const Icon(Icons.clear),
                         onPressed: () {
                           _searchController.clear();
@@ -60,8 +74,9 @@ class _TaskListScreenState extends State<TaskListScreen> {
                             _searchQuery = '';
                           });
                         },
-                      )
-                    : null,
+                      ),
+                  ],
+                ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -174,11 +189,6 @@ class _TaskListScreenState extends State<TaskListScreen> {
                       return TaskCard(
                         task: task,
                         onTap: () => context.push('/tasks/${task.id}'),
-                        onStatusChanged: (status) {
-                          taskProvider.updateTask(task.id, status: status);
-                        },
-                        onEdit: () => context.push('/tasks/${task.id}/edit'),
-                        onDelete: () => _showDeleteConfirmation(task.id),
                       );
                     },
                   ),

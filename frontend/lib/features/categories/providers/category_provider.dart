@@ -1,20 +1,31 @@
 import 'package:flutter/foundation.dart';
-import 'package:hive/hive.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+
+import '../../../core/models/category.dart' as TaskCategory;
+import '../../../core/services/hive_service.dart';
 import 'package:uuid/uuid.dart';
 
-import '../../../core/models/category.dart';
-
+/// Provider لإدارة حالة الفئات في التطبيق
+/// 
+/// يوفر هذا الـ Provider جميع العمليات المتعلقة بالفئات:
+/// - إضافة، تعديل، حذف الفئات
+/// - البحث في الفئات
+/// - إنشاء الفئات الافتراضية
+/// - التخزين المحلي باستخدام Hive
 class CategoryProvider extends ChangeNotifier {
-  final List<Category> _categories = [];
+  final List<TaskCategory.Category> _categories = [];
   bool _isLoading = false;
   String? _error;
 
   // Getters
-  List<Category> get categories => List.unmodifiable(_categories);
+  /// قائمة الفئات المتاحة
+  List<TaskCategory.Category> get categories => List.unmodifiable(_categories);
+  /// حالة التحميل
   bool get isLoading => _isLoading;
+  /// رسالة الخطأ
   String? get error => _error;
 
-  // Initialize
+  /// تحميل الفئات من Hive وإنشاء الفئات الافتراضية إذا لم تكن موجودة
   Future<void> initialize() async {
     _setLoading(true);
     
@@ -33,7 +44,8 @@ class CategoryProvider extends ChangeNotifier {
     _setLoading(false);
   }
 
-  // Add category
+  /// إضافة فئة جديدة مع التحقق من عدم تكرار الاسم
+  /// يستخدم Hive للتخزين المحلي
   Future<bool> addCategory({
     required String name,
     String color = '#6366F1',
@@ -44,13 +56,13 @@ class CategoryProvider extends ChangeNotifier {
     _clearError();
     
     try {
-      // Check if category name already exists
+      // التحقق من تكرار الاسم (case-insensitive) قبل الإضافة
       if (_categories.any((cat) => cat.name.toLowerCase() == name.toLowerCase())) {
         _setError('اسم الفئة موجود بالفعل');
         return false;
       }
 
-      final category = Category(
+      final category = TaskCategory.Category(
         id: const Uuid().v4(),
         name: name,
         color: color,
@@ -72,7 +84,7 @@ class CategoryProvider extends ChangeNotifier {
     }
   }
 
-  // Update category
+  /// تحديث الفئة مع التحقق من عدم تكرار الاسم الجديد
   Future<bool> updateCategory(String categoryId, {
     String? name,
     String? color,
@@ -93,7 +105,7 @@ class CategoryProvider extends ChangeNotifier {
       if (name != null) {
         final existingCategory = _categories.firstWhere(
           (cat) => cat.name.toLowerCase() == name.toLowerCase() && cat.id != categoryId,
-          orElse: () => Category(id: '', name: ''),
+          orElse: () => TaskCategory.Category(id: '', name: ''),
         );
         
         if (existingCategory.id.isNotEmpty) {
@@ -123,7 +135,7 @@ class CategoryProvider extends ChangeNotifier {
     }
   }
 
-  // Delete category
+  /// حذف الفئة مع منع حذف الفئات الافتراضية
   Future<bool> deleteCategory(String categoryId) async {
     _setLoading(true);
     _clearError();
@@ -157,8 +169,8 @@ class CategoryProvider extends ChangeNotifier {
     }
   }
 
-  // Get category by ID
-  Category? getCategoryById(String categoryId) {
+  /// جلب فئة عبر المعرف
+  TaskCategory.Category? getCategoryById(String categoryId) {
     try {
       return _categories.firstWhere((cat) => cat.id == categoryId);
     } catch (e) {
@@ -166,8 +178,8 @@ class CategoryProvider extends ChangeNotifier {
     }
   }
 
-  // Get category by name
-  Category? getCategoryByName(String name) {
+  /// جلب فئة عبر الاسم
+  TaskCategory.Category? getCategoryByName(String name) {
     try {
       return _categories.firstWhere(
         (cat) => cat.name.toLowerCase() == name.toLowerCase(),
@@ -177,8 +189,8 @@ class CategoryProvider extends ChangeNotifier {
     }
   }
 
-  // Search categories
-  List<Category> searchCategories(String query) {
+  /// البحث في اسم ووصف الفئات عن طريق النص المدخل
+  List<TaskCategory.Category> searchCategories(String query) {
     if (query.isEmpty) return categories;
     
     final lowercaseQuery = query.toLowerCase();
@@ -188,13 +200,13 @@ class CategoryProvider extends ChangeNotifier {
     }).toList();
   }
 
-  // Get default categories
-  List<Category> getDefaultCategories() {
+  /// إرجاع قائمة الفئات الافتراضية
+  List<TaskCategory.Category> getDefaultCategories() {
     return _categories.where((cat) => cat.isDefault).toList();
   }
 
-  // Get custom categories
-  List<Category> getCustomCategories() {
+  /// إرجاع قائمة الفئات المخصصة (غير الافتراضية)
+  List<TaskCategory.Category> getCustomCategories() {
     return _categories.where((cat) => !cat.isDefault).toList();
   }
 
@@ -214,13 +226,14 @@ class CategoryProvider extends ChangeNotifier {
   }
 
   Future<void> _loadCategoriesFromHive() async {
-    final categoryBox = await Hive.openBox<Category>('categories');
+    // استخدام Hive Box لتخزين الفئات محلياً
+    final categoryBox = await Hive.openBox<TaskCategory.Category>('categories');
     _categories.clear();
     _categories.addAll(categoryBox.values);
   }
 
   Future<void> _saveCategoriesToHive() async {
-    final categoryBox = await Hive.openBox<Category>('categories');
+    final categoryBox = await Hive.openBox<TaskCategory.Category>('categories');
     await categoryBox.clear();
     
     for (int i = 0; i < _categories.length; i++) {
@@ -229,7 +242,7 @@ class CategoryProvider extends ChangeNotifier {
   }
 
   Future<void> _createDefaultCategories() async {
-    final defaultCategories = Category.getDefaultCategories();
+    final defaultCategories = TaskCategory.Category.getDefaultCategories();
     
     for (final category in defaultCategories) {
       _categories.add(category);

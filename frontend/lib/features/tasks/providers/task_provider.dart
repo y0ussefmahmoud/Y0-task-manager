@@ -5,6 +5,14 @@ import 'package:uuid/uuid.dart';
 import '../../../core/models/task.dart';
 import '../../../core/services/notification_service.dart';
 
+/// Provider لإدارة حالة المهام في التطبيق
+/// 
+/// يوفر هذا الـ Provider جميع العمليات المتعلقة بالمهام:
+/// - إضافة، تعديل، حذف المهام
+/// - الفلترة والترتيب
+/// - البحث والإحصائيات
+/// - التكامل مع Hive للتخزين المحلي
+/// - جدولة الإشعارات
 class TaskProvider extends ChangeNotifier {
   final List<Task> _tasks = [];
   bool _isLoading = false;
@@ -33,7 +41,7 @@ class TaskProvider extends ChangeNotifier {
   
   double get completionRate => totalTasks > 0 ? completedTasks / totalTasks : 0.0;
 
-  // Initialize
+  /// تحميل المهام من Hive عند بدء التطبيق وتحديث الحالة
   Future<void> initialize() async {
     _setLoading(true);
     
@@ -47,7 +55,7 @@ class TaskProvider extends ChangeNotifier {
     _setLoading(false);
   }
 
-  // Add task
+  /// إضافة مهمة جديدة مع جدولة الإشعار إذا كان هناك `reminderDate`
   Future<bool> addTask({
     required String title,
     String? description,
@@ -98,7 +106,8 @@ class TaskProvider extends ChangeNotifier {
     }
   }
 
-  // Update task
+  /// تحديث مهمة موجودة وتحديث الإشعار إذا تغيّر `reminderDate`
+  /// إذا تم إكمال المهمة يتم تعيين `completedAt` تلقائياً
   Future<bool> updateTask(String taskId, {
     String? title,
     String? description,
@@ -163,7 +172,7 @@ class TaskProvider extends ChangeNotifier {
     }
   }
 
-  // Delete task
+  /// حذف مهمة وإلغاء أي إشعار مجدول خاص بها
   Future<bool> deleteTask(String taskId) async {
     _setLoading(true);
     _clearError();
@@ -193,21 +202,46 @@ class TaskProvider extends ChangeNotifier {
     }
   }
 
-  // Complete task
+  /// تحديد المهمة كمكتملة عبر تحديث حالتها إلى `completed`
   Future<bool> completeTask(String taskId) async {
     return await updateTask(taskId, status: 'completed');
   }
 
-  // Get task by ID
+  /// تبديل حالة إكمال المهمة بين مكتملة/غير مكتملة
+  Future<bool> toggleTaskCompletion(String taskId) async {
+    final task = getTaskById(taskId);
+    if (task == null) return false;
+    final newStatus = task.isCompleted ? 'pending' : 'completed';
+    return await updateTask(taskId, status: newStatus);
+  }
+
+  /// جلب مهمة عبر المعرف
   Task? getTaskById(String taskId) {
     try {
       return _tasks.firstWhere((task) => task.id == taskId);
-    } catch (e) {
+    } catch (_) {
       return null;
     }
   }
 
-  // Search tasks
+  /// نسخ مهمة مع إضافة "(نسخة)" إلى العنوان والاحتفاظ بالحقول الأخرى
+  Future<bool> duplicateTask(String taskId) async {
+    final originalTask = getTaskById(taskId);
+    if (originalTask == null) return false;
+
+    return await addTask(
+      title: '${originalTask.title} (نسخة)',
+      description: originalTask.description,
+      priority: originalTask.priority,
+      dueDate: originalTask.dueDate,
+      reminderDate: originalTask.reminderDate,
+      estimatedDuration: originalTask.estimatedDuration,
+      tags: originalTask.tags,
+      categoryId: originalTask.categoryId,
+    );
+  }
+
+  /// البحث في العنوان والوصف والعلامات حسب النص المدخل
   List<Task> searchTasks(String query) {
     if (query.isEmpty) return tasks;
     
@@ -219,60 +253,11 @@ class TaskProvider extends ChangeNotifier {
     }).toList();
   }
 
-  // Set filters and sorting
-  void setSortBy(String sortBy) {
-    _sortBy = sortBy;
-    notifyListeners();
-  }
-
-  void setFilterStatus(String status) {
-    _filterStatus = status;
-    notifyListeners();
-  }
-
-  void setFilterPriority(String priority) {
-    _filterPriority = priority;
-    notifyListeners();
-  }
-
-  void setFilterCategory(String? categoryId) {
-    _filterCategory = categoryId;
-    notifyListeners();
-  }
-
-  void clearFilters() {
-    _filterStatus = 'all';
-    _filterPriority = 'all';
-    _filterCategory = null;
-    notifyListeners();
-  }
-
-  // Get tasks by category
-  List<Task> getTasksByCategory(String categoryId) {
-    return _tasks.where((task) => task.categoryId == categoryId).toList();
-  }
-
-  // Get tasks by date range
-  List<Task> getTasksByDateRange(DateTime start, DateTime end) {
-    return _tasks.where((task) {
-      if (task.dueDate == null) return false;
-      return task.dueDate!.isAfter(start) && task.dueDate!.isBefore(end);
-    }).toList();
-  }
-
-  // Get today's tasks
-  List<Task> getTodaysTasks() {
-    final today = DateTime.now();
-    final startOfDay = DateTime(today.year, today.month, today.day);
-    final endOfDay = startOfDay.add(const Duration(days: 1));
-    
-    return _tasks.where((task) {
-      if (task.dueDate == null) return false;
-      return task.dueDate!.isAfter(startOfDay) && task.dueDate!.isBefore(endOfDay);
-    }).toList();
-  }
-
   // Private methods
+  /// تطبيق الفلترة حسب `status`, `priority`, `category` ثم ترتيب النتائج
+  /// - الترتيب حسب `priority` يعتمد على `priorityScore`
+  /// - عند الترتيب حسب `dueDate` يتم التعامل مع القيم null بحيث تأتي في النهاية
+  /// - تتم المزامنة مع Hive عبر `_saveTasksToHive()` عند أي تعديل
   List<Task> _getFilteredAndSortedTasks() {
     var filteredTasks = _tasks.where((task) {
       // Status filter
@@ -297,8 +282,10 @@ class TaskProvider extends ChangeNotifier {
     filteredTasks.sort((a, b) {
       switch (_sortBy) {
         case 'priority':
+          // استخدام درجة الأولوية الرقمية للترتيب (urgent=4..low=1)
           return b.priorityScore.compareTo(a.priorityScore);
         case 'dueDate':
+          // التعامل مع القيم الخالية بحيث تظهر المهام بلا موعد لاحقاً
           if (a.dueDate == null && b.dueDate == null) return 0;
           if (a.dueDate == null) return 1;
           if (b.dueDate == null) return -1;
